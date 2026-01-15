@@ -277,15 +277,31 @@ app.get('/profile', authenticateToken, async (req, res) => {
 
 app.post('/profile', authenticateToken, async (req, res) => {
     try {
+        console.log(`[PROFILE UPDATE] Request from User ID: ${req.user.id}`);
         const { name, email, avatar, gender, dob, cccd, bank_name, bank_account } = req.body;
+
+        // Chuyển đổi dob từ DD/MM/YYYY sang YYYY-MM-DD cho MySQL
+        let formattedDob = null;
+        if (dob && dob.includes('/')) {
+            const [day, month, year] = dob.split('/');
+            formattedDob = `${year}-${month}-${day}`;
+        } else if (dob && dob.includes('-')) {
+            formattedDob = dob; // Đã đúng định dạng
+        }
+
+        console.log(`[PROFILE UPDATE] Data: name=${name}, email=${email}, dob=${formattedDob}`);
+
         await pool.execute(
             `UPDATE user_profile 
              SET name=?, email=?, avatar=?, gender=?, dob=?, cccd=?, bank_name=?, bank_account=? 
              WHERE id=?`,
-            [name, email, avatar, gender, dob, cccd, bank_name, bank_account, req.user.id]
+            [name, email, avatar || null, gender || null, formattedDob, cccd || null, bank_name || null, bank_account || null, req.user.id]
         );
+
+        console.log('[PROFILE UPDATE] Success');
         res.json({ message: 'Profile updated' });
     } catch (err) {
+        console.error('[PROFILE UPDATE] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
