@@ -32,18 +32,19 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('QuanLyChiTieu Backend is Running! (v1.1)');
+    res.send('QuanLyChiTieu Backend is Running! (v1.2)');
 });
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime() });
+    res.json({ status: 'ok', uptime: process.uptime(), version: '1.2' });
 });
 
-// --- AUTH / OTP API (v1.1) ---
+// --- AUTH / OTP API (v1.2) ---
 
 // Gửi mã OTP
 app.post('/auth/send-otp', async (req, res) => {
     const { email } = req.body;
+    console.log(`[SERVER] Received OTP request for: ${email}`);
     try {
         if (!email) return res.status(400).json({ error: 'Email is required' });
 
