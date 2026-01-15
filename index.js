@@ -31,6 +31,14 @@ app.use((req, res, next) => {
     next();
 });
 
+app.get('/', (req, res) => {
+    res.send('QuanLyChiTieu Backend is Running! (v1.1)');
+});
+
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 // --- AUTH / OTP API (v1.1) ---
 
 // Gửi mã OTP
