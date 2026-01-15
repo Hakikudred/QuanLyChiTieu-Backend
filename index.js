@@ -31,7 +31,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- AUTH / OTP API ---
+// --- AUTH / OTP API (v1.1) ---
 
 // Gửi mã OTP
 app.post('/auth/send-otp', async (req, res) => {
