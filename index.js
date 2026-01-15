@@ -5,7 +5,17 @@ const bodyParser = require('body-parser');
 const pool = require('./db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const authenticateToken = require('./middleware/auth');
+
+// EMAIL CONFIG
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,21 +31,70 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- AUTH API ---
+// --- AUTH / OTP API ---
+
+// Gửi mã OTP
+app.post('/auth/send-otp', async (req, res) => {
+    const { email } = req.body;
+    try {
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        // Tạo mã 6 số
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
+
+        // Lưu vào DB
+        await pool.execute(
+            'INSERT INTO otp_verifications (email, otp, expires_at) VALUES (?, ?, ?)',
+            [email, otp, expiresAt]
+        );
+
+        // Gửi Mail
+        const mailOptions = {
+            from: `"Quản Lý Chi Tiêu" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Mã xác thực đăng ký của bạn',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                    <h2 style="color: #007AFF;">Xác thực tài khoản</h2>
+                    <p>Chào bạn, mã xác thực (OTP) để đăng ký tài khoản của bạn là:</p>
+                    <div style="background: #F2F2F7; padding: 15px; font-size: 24px; font-weight: bold; text-align: center; border-radius: 10px; color: #007AFF; letter-spacing: 5px;">
+                        ${otp}
+                    </div>
+                    <p>Mã này có hiệu lực trong vòng <b>5 phút</b>. Vui lòng không cung cấp mã này cho bất kỳ ai.</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.json({ message: 'OTP sent to your email' });
+    } catch (err) {
+        console.error('[OTP ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to send OTP' });
+    }
+});
 
 // Register
 app.post('/register', async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, otp } = req.body;
     try {
-        if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+        if (!email || !password || !otp) return res.status(400).json({ error: 'Thiếu thông tin hoặc mã OTP' });
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({ error: 'Invalid email format' });
+        // Kiểm tra OTP
+        const [rows] = await pool.query(
+            'SELECT * FROM otp_verifications WHERE email = ? AND otp = ? AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+            [email, otp]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({ error: 'Mã OTP không chính xác hoặc đã hết hạn' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Nếu mã đúng -> Xóa mã đã dùng
+        await pool.execute('DELETE FROM otp_verifications WHERE email = ?', [email]);
 
+        // Tạo User
+        const hashedPassword = await bcrypt.hash(password, 10);
         const [result] = await pool.execute(
             'INSERT INTO user_profile (name, email, password) VALUES (?, ?, ?)',
             [name || 'New User', email, hashedPassword]
@@ -44,7 +103,7 @@ app.post('/register', async (req, res) => {
         res.status(201).json({ message: 'Registered successfully', userId: result.insertId });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ error: 'Email already exists' });
+            return res.status(400).json({ error: 'Email đã tồn tại' });
         }
         res.status(500).json({ error: err.message });
     }
