@@ -66,11 +66,16 @@ app.post('/auth/send-otp', async (req, res) => {
             `
         };
 
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            console.error('[OTP ERROR] EMAIL_USER or EMAIL_PASS not configured');
+            return res.status(500).json({ error: 'Server cấu hình thiếu Email (Env vars missing)' });
+        }
+
         await transporter.sendMail(mailOptions);
         res.json({ message: 'OTP sent to your email' });
     } catch (err) {
-        console.error('[OTP ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to send OTP' });
+        console.error('[OTP ERROR DETAILED]', err);
+        res.status(500).json({ error: `Gửi OTP thất bại: ${err.message}` });
     }
 });
 
