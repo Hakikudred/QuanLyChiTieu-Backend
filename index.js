@@ -32,11 +32,11 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('QuanLyChiTieu Backend is Running! (v1.4)');
+    res.send('QuanLyChiTieu Backend is Running! (v1.5)');
 });
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime(), version: '1.4' });
+    res.json({ status: 'ok', uptime: process.uptime(), version: '1.5' });
 });
 
 app.get('/test-db', async (req, res) => {
@@ -45,11 +45,11 @@ app.get('/test-db', async (req, res) => {
         res.json({ status: 'ok', message: 'Database connected successfully!', result: rows[0].result });
     } catch (err) {
         console.error('[DB TEST ERROR]', err);
-        res.status(500).json({ status: 'error', message: err.message, code: err.code });
+        res.status(500).json({ status: 'error', message: err.message, code: err.code, env_uri_exists: !!process.env.DB_URI });
     }
 });
 
-// --- AUTH / REGISTER (v1.4) ---
+// --- AUTH / REGISTER (v1.5) ---
 
 // Gửi mã OTP
 app.post('/auth/send-otp', async (req, res) => {
