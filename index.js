@@ -32,14 +32,14 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('QuanLyChiTieu Backend is Running! (v1.2)');
+    res.send('QuanLyChiTieu Backend is Running! (v1.3)');
 });
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime(), version: '1.2' });
+    res.json({ status: 'ok', uptime: process.uptime(), version: '1.3' });
 });
 
-// --- AUTH / OTP API (v1.2) ---
+// --- AUTH / REGISTER (v1.3) ---
 
 // Gửi mã OTP
 app.post('/auth/send-otp', async (req, res) => {
@@ -90,25 +90,13 @@ app.post('/auth/send-otp', async (req, res) => {
 
 // Register
 app.post('/register', async (req, res) => {
-    const { name, email, password, otp } = req.body;
+    const { name, email, password } = req.body;
     try {
-        if (!email || !password || !otp) return res.status(400).json({ error: 'Thiếu thông tin hoặc mã OTP' });
-
-        // Kiểm tra OTP
-        const [rows] = await pool.query(
-            'SELECT * FROM otp_verifications WHERE email = ? AND otp = ? AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
-            [email, otp]
-        );
-
-        if (rows.length === 0) {
-            return res.status(400).json({ error: 'Mã OTP không chính xác hoặc đã hết hạn' });
-        }
-
-        // Nếu mã đúng -> Xóa mã đã dùng
-        await pool.execute('DELETE FROM otp_verifications WHERE email = ?', [email]);
+        if (!email || !password) return res.status(400).json({ error: 'Thiếu thông tin đăng ký' });
 
         // Tạo User
         const hashedPassword = await bcrypt.hash(password, 10);
+
         const [result] = await pool.execute(
             'INSERT INTO user_profile (name, email, password) VALUES (?, ?, ?)',
             [name || 'New User', email, hashedPassword]
